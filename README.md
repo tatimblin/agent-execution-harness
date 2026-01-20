@@ -14,7 +14,7 @@ cargo install agent-execution-harness
 
 ```bash
 # Once the tap is set up
-brew tap tristimb/tap
+brew tap tatimblin/agent-execution-harness
 brew install agent-execution-harness
 ```
 
@@ -107,7 +107,7 @@ This project has fully automated releases to both crates.io and Homebrew:
 
 3. **Create Homebrew tap repository:**
    ```bash
-   gh repo create tatimblin/homebrew-tap --public
+   gh repo create tatimblin/homebrew-agent-execution-harness --public
    ```
 
 ### Create a new release
