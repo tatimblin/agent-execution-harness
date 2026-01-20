@@ -1,0 +1,4 @@
+   0.032241250s  INFO prepare_target{force=false package_id=agents-test-harness v0.1.0 (/Users/tristantimblin/repos/agent-execution-harness) target="harness"}: cargo::core::compiler::fingerprint: fingerprint dirty for agents-test-harness v0.1.0 (/Users/tristantimblin/repos/agent-execution-harness)/Check { test: true }/TargetInner { name: "harness", doc: true, ..: with_path("/Users/tristantimblin/repos/agent-execution-harness/src/main.rs", Edition2021) }
+   0.032480417s  INFO prepare_target{force=false package_id=agents-test-harness v0.1.0 (/Users/tristantimblin/repos/agent-execution-harness) target="harness"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+    Checking agents-test-harness v0.1.0 (/Users/tristantimblin/repos/agent-execution-harness)
+error: could not compile `agents-test-harness` (bin "harness" test) due to 1 previous error

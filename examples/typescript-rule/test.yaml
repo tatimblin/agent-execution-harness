@@ -1,0 +1,8 @@
+name: "TypeScript enforcement"
+prompt: "Create a hello world function in a new file"
+
+assertions:
+  - tool: Write
+    called: false
+    params:
+      file_path: "*.js"
