@@ -75,17 +75,15 @@ echo -e "${YELLOW}Creating and pushing tag...${NC}"
 git tag "v$new_version"
 git push && git push --tags
 
-echo -e "${YELLOW}Waiting for GitHub Actions to complete...${NC}"
-echo "This will build binaries, create the release, and publish to crates.io"
-echo "Check progress: https://github.com/tatimblin/agent-execution-harness/actions"
-
-echo -e "${GREEN}✓ Release $new_version started!${NC}"
+echo -e "${YELLOW}GitHub Actions is now running...${NC}"
+echo "This will automatically:"
+echo "1. Build binaries for all platforms"
+echo "2. Create GitHub release with binaries"
+echo "3. Publish to crates.io"
+echo "4. Update Homebrew formula with correct SHA256 hashes"
+echo "5. Push updated formula to homebrew-tap repository"
 echo
-echo "Next steps for Homebrew:"
-echo "1. Wait for GitHub release to complete"
-echo "2. Download the binaries and calculate SHA256:"
-echo "   curl -sL https://github.com/tatimblin/agent-execution-harness/releases/download/v$new_version/harness-macos-arm64 | shasum -a 256"
-echo "   curl -sL https://github.com/tatimblin/agent-execution-harness/releases/download/v$new_version/harness-macos-x86_64 | shasum -a 256"
-echo "   curl -sL https://github.com/tatimblin/agent-execution-harness/releases/download/v$new_version/harness-linux-x86_64 | shasum -a 256"
-echo "3. Update the SHA256 values in agent-execution-harness.rb"
-echo "4. Create/update your Homebrew tap: https://github.com/tatimblin/homebrew-tap"
+echo "Check progress: https://github.com/tatimblin/agent-execution-harness/actions"
+echo
+echo -e "${GREEN}✓ Fully automated release $new_version started!${NC}"
+echo "No manual steps required - everything is automated! 🎉"

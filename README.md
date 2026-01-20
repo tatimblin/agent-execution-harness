@@ -92,33 +92,45 @@ cargo test test_name
 
 ## Release Process
 
-This project uses automated scripts for releasing to both crates.io and Homebrew:
+This project has fully automated releases to both crates.io and Homebrew:
+
+### One-time setup
+
+1. **Create crates.io API token:**
+   - Go to https://crates.io/settings/tokens and create a token
+   - Add it as `CARGO_REGISTRY_TOKEN` secret in GitHub repo settings
+
+2. **Create GitHub personal access token:**
+   - Go to GitHub Settings → Developer settings → Personal access tokens
+   - Create a token with `repo` permissions for your homebrew-tap repo
+   - Add it as `HOMEBREW_TAP_TOKEN` secret in GitHub repo settings
+
+3. **Create Homebrew tap repository:**
+   ```bash
+   gh repo create tatimblin/homebrew-tap --public
+   ```
 
 ### Create a new release
 
 ```bash
-# Bump version and release
+# Bump version and trigger fully automated release
 ./release.sh patch  # 0.1.0 -> 0.1.1
 ./release.sh minor  # 0.1.0 -> 0.2.0
 ./release.sh major  # 0.1.0 -> 1.0.0
 ./release.sh 1.2.3  # specific version
 ```
 
-This script will:
-1. Update version in `Cargo.toml`
-2. Create and push a git tag
-3. Trigger GitHub Actions to build release binaries
-4. Publish to crates.io
+This single command automatically:
+1. Updates version in `Cargo.toml` and `Cargo.lock`
+2. Creates and pushes a git tag
+3. Triggers GitHub Actions that:
+   - Builds binaries for all platforms
+   - Creates GitHub release with binaries
+   - Publishes to crates.io
+   - Calculates SHA256 hashes for Homebrew formula
+   - Updates and pushes the Homebrew formula to your tap
 
-### Update Homebrew formula
-
-After the GitHub release is created, update the SHA256 hashes:
-
-```bash
-./update-homebrew-shas.sh 0.1.0
-```
-
-This downloads the release binaries and updates the Homebrew formula with correct SHA256 hashes.
+**No manual steps required!** 🎉
 
 ## Architecture
 

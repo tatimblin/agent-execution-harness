@@ -85,3 +85,60 @@ jobs:
         run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  update-homebrew:
+    name: Update Homebrew formula
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Download and calculate SHA256 hashes
+        id: hashes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BASE_URL="https://github.com/tatimblin/agent-execution-harness/releases/download/v${VERSION}"
+
+          # Download and calculate SHA256 for each binary
+          ARM64_SHA=$(curl -sL "${BASE_URL}/harness-macos-arm64" | sha256sum | cut -d' ' -f1)
+          X86_64_SHA=$(curl -sL "${BASE_URL}/harness-macos-x86_64" | sha256sum | cut -d' ' -f1)
+          LINUX_SHA=$(curl -sL "${BASE_URL}/harness-linux-x86_64" | sha256sum | cut -d' ' -f1)
+
+          echo "arm64_sha=${ARM64_SHA}" >> $GITHUB_OUTPUT
+          echo "x86_64_sha=${X86_64_SHA}" >> $GITHUB_OUTPUT
+          echo "linux_sha=${LINUX_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARM64_SHA="${{ steps.hashes.outputs.arm64_sha }}"
+          X86_64_SHA="${{ steps.hashes.outputs.x86_64_sha }}"
+          LINUX_SHA="${{ steps.hashes.outputs.linux_sha }}"
+
+          # Update version and SHA256 hashes in the formula
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" agent-execution-harness.rb
+          sed -i "s/PLACEHOLDER_ARM64_SHA/${ARM64_SHA}/g" agent-execution-harness.rb
+          sed -i "s/PLACEHOLDER_X86_64_SHA/${X86_64_SHA}/g" agent-execution-harness.rb
+          sed -i "s/PLACEHOLDER_LINUX_SHA/${LINUX_SHA}/g" agent-execution-harness.rb
+
+      - name: Clone or update Homebrew tap
+        run: |
+          if [ ! -d "homebrew-tap" ]; then
+            git clone https://github.com/tatimblin/homebrew-tap.git homebrew-tap
+          fi
+          cp agent-execution-harness.rb homebrew-tap/
+
+      - name: Commit and push to Homebrew tap
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add agent-execution-harness.rb
+          git commit -m "Update agent-execution-harness to v${{ steps.version.outputs.version }}" || exit 0
+          git push
