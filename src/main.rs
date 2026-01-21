@@ -1,7 +1,6 @@
 mod agents;
 mod assertions;
 mod parser;
-mod watcher;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};

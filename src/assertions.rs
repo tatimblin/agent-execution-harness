@@ -40,12 +40,6 @@ pub enum AssertionResult {
     Fail { reason: String },
 }
 
-impl AssertionResult {
-    pub fn is_pass(&self) -> bool {
-        matches!(self, AssertionResult::Pass)
-    }
-}
-
 /// Load a test from a YAML file
 pub fn load_test(path: &Path) -> Result<Test> {
     let content = fs::read_to_string(path).context("Failed to read test file")?;
@@ -231,7 +225,7 @@ mod tests {
         };
         let calls = vec![make_call("Read", json!({"file_path": "/tmp/test.txt"}))];
         let result = evaluate_single_assertion(&assertion, &calls);
-        assert!(result.is_pass());
+        assert!(matches!(result, AssertionResult::Pass));
     }
 
     #[test]
@@ -244,7 +238,7 @@ mod tests {
         };
         let calls = vec![make_call("Read", json!({"file_path": "/tmp/test.txt"}))];
         let result = evaluate_single_assertion(&assertion, &calls);
-        assert!(result.is_pass());
+        assert!(matches!(result, AssertionResult::Pass));
     }
 
     #[test]

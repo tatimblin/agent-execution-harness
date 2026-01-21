@@ -48,8 +48,6 @@ impl AgentType {
 pub struct NormalizedResult {
     /// Tool calls with canonical names.
     pub tool_calls: Vec<ToolCall>,
-    /// Exit code from the agent.
-    pub exit_code: i32,
     /// Name of the agent that was executed.
     pub agent_name: String,
 }
@@ -111,7 +109,6 @@ impl AgentHarness {
 
         Ok(NormalizedResult {
             tool_calls: normalized_calls,
-            exit_code: raw_result.exit_code,
             agent_name: agent.name().to_string(),
         })
     }
@@ -135,15 +132,6 @@ impl AgentHarness {
     /// Get an agent by type.
     pub fn get_agent(&self, agent_type: AgentType) -> Option<&Arc<dyn Agent>> {
         self.agents.get(&agent_type)
-    }
-
-    /// List available agents (those installed on the system).
-    pub fn available_agents(&self) -> Vec<&'static str> {
-        self.agents
-            .values()
-            .filter(|a| a.is_available())
-            .map(|a| a.name())
-            .collect()
     }
 
     /// List all registered agents.

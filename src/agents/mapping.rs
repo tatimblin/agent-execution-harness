@@ -20,13 +20,11 @@ pub mod canonical {
     pub const NOTEBOOK_EDIT: &str = "notebook_edit";
 }
 
-/// Bidirectional mapping between agent-specific and canonical tool names.
+/// Mapping from agent-specific to canonical tool names.
 #[derive(Debug, Clone, Default)]
 pub struct ToolNameMapping {
     /// Agent tool name -> Canonical name
     to_canonical: HashMap<String, String>,
-    /// Canonical name -> Agent tool name
-    from_canonical: HashMap<String, String>,
 }
 
 impl ToolNameMapping {
@@ -34,12 +32,10 @@ impl ToolNameMapping {
         Self::default()
     }
 
-    /// Add a mapping: agent_name <-> canonical_name
+    /// Add a mapping: agent_name -> canonical_name
     pub fn add(&mut self, agent_name: &str, canonical_name: &str) -> &mut Self {
         self.to_canonical
             .insert(agent_name.to_string(), canonical_name.to_string());
-        self.from_canonical
-            .insert(canonical_name.to_string(), agent_name.to_string());
         self
     }
 
@@ -51,26 +47,6 @@ impl ToolNameMapping {
             .get(agent_name)
             .cloned()
             .unwrap_or_else(|| agent_name.to_string())
-    }
-
-    /// Convert canonical tool name to agent-specific.
-    ///
-    /// If no mapping exists, returns the original name unchanged.
-    pub fn from_canonical(&self, canonical_name: &str) -> String {
-        self.from_canonical
-            .get(canonical_name)
-            .cloned()
-            .unwrap_or_else(|| canonical_name.to_string())
-    }
-
-    /// Check if a mapping exists for an agent tool name.
-    pub fn has_agent_name(&self, agent_name: &str) -> bool {
-        self.to_canonical.contains_key(agent_name)
-    }
-
-    /// Check if a mapping exists for a canonical tool name.
-    pub fn has_canonical_name(&self, canonical_name: &str) -> bool {
-        self.from_canonical.contains_key(canonical_name)
     }
 }
 
@@ -87,9 +63,5 @@ mod tests {
         assert_eq!(mapping.to_canonical("Read"), "read_file");
         assert_eq!(mapping.to_canonical("Write"), "write_file");
         assert_eq!(mapping.to_canonical("Unknown"), "Unknown");
-
-        assert_eq!(mapping.from_canonical("read_file"), "Read");
-        assert_eq!(mapping.from_canonical("write_file"), "Write");
-        assert_eq!(mapping.from_canonical("unknown"), "unknown");
     }
 }

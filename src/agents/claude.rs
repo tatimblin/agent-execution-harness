@@ -68,18 +68,13 @@ impl Agent for ClaudeAdapter {
             cmd.arg(arg);
         }
 
-        let output = cmd.output().context("Failed to execute claude command")?;
-
-        let exit_code = output.status.code().unwrap_or(-1);
-        let raw_output = String::from_utf8_lossy(&output.stdout).to_string();
+        let _output = cmd.output().context("Failed to execute claude command")?;
 
         // Find the new session log file
         let session_log_path = find_new_session(&claude_dir, &existing_sessions)?;
 
         Ok(RawExecutionResult {
             session_log_path: Some(session_log_path),
-            raw_output,
-            exit_code,
         })
     }
 
@@ -103,10 +98,6 @@ impl Agent for ClaudeAdapter {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
-    }
-
-    fn session_directory(&self) -> Option<PathBuf> {
-        dirs::home_dir().map(|h| h.join(".claude").join("projects"))
     }
 }
 

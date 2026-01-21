@@ -35,6 +35,7 @@ struct MessageContent {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
+#[allow(dead_code)]
 enum ContentBlock {
     #[serde(rename = "text")]
     Text { text: String },
@@ -67,11 +68,6 @@ pub fn parse_jsonl_file(path: &Path) -> Result<Vec<ToolCall>> {
     }
 
     Ok(tool_calls)
-}
-
-/// Parse JSONL content from a string (for incremental parsing)
-pub fn parse_jsonl_line(line: &str) -> Result<Vec<ToolCall>> {
-    Ok(parse_line_internal(line)?.unwrap_or_default())
 }
 
 /// Internal parsing: check type first, then parse full entry only for assistant messages
@@ -133,7 +129,7 @@ mod tests {
     #[test]
     fn test_parse_tool_use() {
         let json = r#"{"type":"assistant","timestamp":"2024-01-19T12:00:00Z","message":{"content":[{"type":"tool_use","id":"123","name":"Read","input":{"file_path":"/tmp/test.txt"}}]}}"#;
-        let calls = parse_jsonl_line(json).unwrap();
+        let calls = parse_line_internal(json).unwrap().unwrap_or_default();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].name, "Read");
     }
@@ -142,15 +138,15 @@ mod tests {
     fn test_skip_user_messages() {
         // User messages are skipped early (before full parse) based on type field
         let json = r#"{"type":"user","timestamp":"2024-01-19T12:00:00Z","message":{"content":"hello"}}"#;
-        let calls = parse_jsonl_line(json).unwrap();
-        assert!(calls.is_empty());
+        let calls = parse_line_internal(json).unwrap();
+        assert!(calls.is_none());
     }
 
     #[test]
     fn test_skip_system_messages() {
         // System/meta messages are also skipped
         let json = r#"{"type":"system","subtype":"turn_duration","durationMs":318950}"#;
-        let calls = parse_jsonl_line(json).unwrap();
-        assert!(calls.is_empty());
+        let calls = parse_line_internal(json).unwrap();
+        assert!(calls.is_none());
     }
 }

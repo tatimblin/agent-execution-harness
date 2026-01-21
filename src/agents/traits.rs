@@ -3,8 +3,8 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::parser::ToolCall;
 use super::mapping::ToolNameMapping;
+use crate::parser::ToolCall;
 
 /// Configuration for agent execution.
 #[derive(Debug, Clone, Default)]
@@ -31,10 +31,6 @@ impl ExecutionConfig {
 pub struct RawExecutionResult {
     /// Path to the session log file, if the agent produces one.
     pub session_log_path: Option<PathBuf>,
-    /// Raw stdout output from the agent.
-    pub raw_output: String,
-    /// Exit code from the agent process.
-    pub exit_code: i32,
 }
 
 /// The core trait that all agent adapters must implement.
@@ -62,9 +58,4 @@ pub trait Agent: Send + Sync {
 
     /// Check if this agent is available on the system.
     fn is_available(&self) -> bool;
-
-    /// Get the default session directory for this agent, if any.
-    fn session_directory(&self) -> Option<PathBuf> {
-        None
-    }
 }

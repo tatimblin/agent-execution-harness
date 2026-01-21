@@ -28,7 +28,5 @@ mod harness;
 mod mapping;
 mod traits;
 
-pub use claude::ClaudeAdapter;
-pub use harness::{AgentHarness, AgentType, NormalizedResult};
-pub use mapping::{canonical, ToolNameMapping};
-pub use traits::{Agent, ExecutionConfig, RawExecutionResult};
+pub use harness::{AgentHarness, AgentType};
+pub use traits::ExecutionConfig;
