@@ -13,6 +13,9 @@ use crate::parser::ToolCall;
 pub struct Test {
     pub name: String,
     pub prompt: String,
+    /// Agent to use for this test (defaults to "claude").
+    #[serde(default)]
+    pub agent: Option<String>,
     pub assertions: Vec<Assertion>,
 }
 
@@ -35,12 +38,6 @@ fn default_true() -> bool {
 pub enum AssertionResult {
     Pass,
     Fail { reason: String },
-}
-
-impl AssertionResult {
-    pub fn is_pass(&self) -> bool {
-        matches!(self, AssertionResult::Pass)
-    }
 }
 
 /// Load a test from a YAML file
@@ -228,7 +225,7 @@ mod tests {
         };
         let calls = vec![make_call("Read", json!({"file_path": "/tmp/test.txt"}))];
         let result = evaluate_single_assertion(&assertion, &calls);
-        assert!(result.is_pass());
+        assert!(matches!(result, AssertionResult::Pass));
     }
 
     #[test]
@@ -241,7 +238,7 @@ mod tests {
         };
         let calls = vec![make_call("Read", json!({"file_path": "/tmp/test.txt"}))];
         let result = evaluate_single_assertion(&assertion, &calls);
-        assert!(result.is_pass());
+        assert!(matches!(result, AssertionResult::Pass));
     }
 
     #[test]

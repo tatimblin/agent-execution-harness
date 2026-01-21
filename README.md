@@ -10,10 +10,9 @@ A test harness for validating AI agent (Claude Code) behavior against steering g
 cargo install agent-execution-harness
 ```
 
-### From Homebrew (coming soon)
+### From Homebrew
 
 ```bash
-# Once the tap is set up
 brew tap tatimblin/agent-execution-harness
 brew install agent-execution-harness
 ```
