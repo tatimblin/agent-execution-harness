@@ -16,9 +16,9 @@
 //!
 //! let harness = AgentHarness::new();
 //! let config = ExecutionConfig::new();
-//! let result = harness.execute(Some(AgentType::Claude), "Hello", config)?;
+//! let output = harness.execute(Some(AgentType::Claude), "Hello", config)?;
 //!
-//! for call in result.tool_calls {
+//! for call in &output.result.tool_calls {
 //!     println!("Tool: {}", call.name);
 //! }
 //! ```
@@ -28,6 +28,6 @@ mod harness;
 pub mod mapping;
 mod traits;
 
-pub use harness::{AgentHarness, AgentType, NormalizedResult};
+pub use harness::{AgentHarness, AgentType, ExecutionOutput, NormalizedResult};
 pub use mapping::ToolNameMapping;
 pub use traits::{Agent, ExecutionConfig, RawExecutionResult};

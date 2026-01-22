@@ -44,15 +44,29 @@ impl AgentType {
 }
 
 /// Normalized execution result with canonical tool names.
+///
+/// Contains only the analyzed output from execution - tool calls
+/// normalized to canonical names. For debug info like stdout,
+/// use [`ExecutionOutput`].
 #[derive(Debug)]
 pub struct NormalizedResult {
     /// Tool calls with canonical names.
     pub tool_calls: Vec<ToolCall>,
     /// Name of the agent that was executed.
     pub agent_name: String,
+}
+
+/// Full execution output including debug/presentation info.
+///
+/// This wraps [`NormalizedResult`] with additional information
+/// useful for debugging and display, keeping the core result clean.
+#[derive(Debug)]
+pub struct ExecutionOutput {
+    /// The normalized execution result.
+    pub result: NormalizedResult,
     /// Path to the session log file, if available.
     pub session_log_path: Option<std::path::PathBuf>,
-    /// Stdout from the agent command.
+    /// Stdout captured from the agent command.
     pub stdout: Option<String>,
 }
 
@@ -79,15 +93,17 @@ impl AgentHarness {
         }
     }
 
-    /// Execute an agent and return normalized results.
+    /// Execute an agent and return full execution output.
     ///
     /// Tool calls are automatically converted to canonical names.
+    /// Returns [`ExecutionOutput`] containing both the normalized result
+    /// and debug info (stdout, session log path).
     pub fn execute(
         &self,
         agent_type: Option<AgentType>,
         prompt: &str,
         config: ExecutionConfig,
-    ) -> Result<NormalizedResult> {
+    ) -> Result<ExecutionOutput> {
         let agent_type = agent_type.unwrap_or(self.default_agent);
 
         let agent = self
@@ -111,9 +127,11 @@ impl AgentHarness {
         // Normalize tool names to canonical form
         let normalized_calls = self.normalize_tool_calls(&raw_tool_calls, agent.tool_mapping());
 
-        Ok(NormalizedResult {
-            tool_calls: normalized_calls,
-            agent_name: agent.name().to_string(),
+        Ok(ExecutionOutput {
+            result: NormalizedResult {
+                tool_calls: normalized_calls,
+                agent_name: agent.name().to_string(),
+            },
             session_log_path: raw_result.session_log_path,
             stdout: raw_result.stdout,
         })

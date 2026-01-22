@@ -16,21 +16,25 @@
 //! expect(&tool_calls).tool(Tool::Read).to_be_called();
 //! ```
 //!
-//! # With Output Display
+//! # Full Output
 //!
 //! ```rust,ignore
-//! use agent_harness::{prompt, expect, Tool, OutputConfig};
+//! use agent_harness::{prompt, expect, Tool};
 //!
-//! let result = prompt("Read the config file")
-//!     .with_output(OutputConfig::verbose())
+//! let output = prompt("Read the config file")
 //!     .run_full()
 //!     .unwrap();
 //!
-//! expect(&result.tool_calls).tool(Tool::Read).to_be_called();
+//! // Access tool calls
+//! expect(&output.result.tool_calls).tool(Tool::Read).to_be_called();
+//!
+//! // Access debug info if needed
+//! if let Some(stdout) = &output.stdout {
+//!     println!("Response: {}", stdout);
+//! }
 //! ```
 
-use crate::agents::{AgentHarness, AgentType, ExecutionConfig, NormalizedResult};
-use crate::output::{OutputConfig, OutputFormatter};
+use crate::agents::{AgentHarness, AgentType, ExecutionConfig, ExecutionOutput};
 use crate::parser::ToolCall;
 use std::path::PathBuf;
 
@@ -53,13 +57,12 @@ pub fn prompt(text: &str) -> PromptBuilder {
 /// Builder for configuring and executing prompts.
 ///
 /// The builder provides a fluent interface for setting up prompt execution
-/// with various options like working directory, agent type, and output display.
+/// with various options like working directory and agent type.
 #[derive(Debug, Clone)]
 pub struct PromptBuilder {
     text: String,
     working_dir: Option<PathBuf>,
     agent: Option<AgentType>,
-    output_config: Option<OutputConfig>,
 }
 
 impl PromptBuilder {
@@ -69,7 +72,6 @@ impl PromptBuilder {
             text: text.to_string(),
             working_dir: None,
             agent: None,
-            output_config: None,
         }
     }
 
@@ -113,48 +115,29 @@ impl PromptBuilder {
         self
     }
 
-    /// Configure output display.
+    /// Execute the prompt and return the full execution output.
     ///
-    /// When set, tool calls and Claude's response will be printed after execution.
-    /// This is useful for debugging in Rust tests.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use agent_harness::{prompt, OutputConfig};
-    ///
-    /// let result = prompt("Read files")
-    ///     .with_output(OutputConfig::verbose())
-    ///     .run_full()
-    ///     .unwrap();
-    /// ```
-    pub fn with_output(mut self, config: OutputConfig) -> Self {
-        self.output_config = Some(config);
-        self
-    }
-
-    /// Execute the prompt and return the full result including stdout.
-    ///
-    /// If output configuration is set via `with_output()`, tool calls and
-    /// Claude's response will be printed after execution.
+    /// Returns [`ExecutionOutput`] containing both the normalized result
+    /// (tool calls) and debug info (stdout, session log path).
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// use agent_harness::{prompt, OutputConfig};
+    /// use agent_harness::prompt;
     ///
-    /// let result = prompt("Read config.json")
-    ///     .with_output(OutputConfig::verbose())
+    /// let output = prompt("Read config.json")
     ///     .run_full()
     ///     .unwrap();
     ///
-    /// // Access tool calls and stdout
-    /// println!("Made {} tool calls", result.tool_calls.len());
-    /// if let Some(stdout) = &result.stdout {
+    /// // Access tool calls
+    /// println!("Made {} tool calls", output.result.tool_calls.len());
+    ///
+    /// // Access debug info if needed
+    /// if let Some(stdout) = &output.stdout {
     ///     println!("Response: {}", stdout);
     /// }
     /// ```
-    pub fn run_full(self) -> anyhow::Result<NormalizedResult> {
+    pub fn run_full(self) -> anyhow::Result<ExecutionOutput> {
         let harness = AgentHarness::new();
         let mut config = ExecutionConfig::new();
 
@@ -162,26 +145,14 @@ impl PromptBuilder {
             config = config.with_working_dir(dir);
         }
 
-        let result = harness.execute(self.agent, &self.text, config)?;
-
-        // Print output if configured
-        if let Some(output_config) = self.output_config {
-            let formatter = OutputFormatter::new(output_config);
-            // For Rust tests, we print immediately (can't know pass/fail yet)
-            formatter.print_tool_calls(&result.tool_calls, true);
-            formatter.print_response(result.stdout.as_deref(), true);
-        }
-
-        Ok(result)
+        harness.execute(self.agent, &self.text, config)
     }
 
     /// Execute the prompt and return tool calls.
     ///
-    /// This runs the configured agent with the prompt and collects all tool
-    /// calls made during execution.
-    ///
-    /// If output configuration is set via `with_output()`, tool calls and
-    /// Claude's response will be printed after execution.
+    /// This is a convenience method that extracts just the tool calls
+    /// from the execution result. Use [`run_full`](Self::run_full) if you
+    /// need access to stdout or other debug info.
     ///
     /// # Errors
     ///
@@ -197,7 +168,7 @@ impl PromptBuilder {
     /// assert!(!tool_calls.is_empty());
     /// ```
     pub fn run(self) -> anyhow::Result<Vec<ToolCall>> {
-        Ok(self.run_full()?.tool_calls)
+        Ok(self.run_full()?.result.tool_calls)
     }
 }
 
@@ -211,7 +182,6 @@ mod tests {
         assert_eq!(builder.text, "Test prompt");
         assert!(builder.working_dir.is_none());
         assert!(builder.agent.is_none());
-        assert!(builder.output_config.is_none());
     }
 
     #[test]
@@ -235,13 +205,5 @@ mod tests {
         assert_eq!(builder.text, "Test");
         assert_eq!(builder.working_dir, Some(PathBuf::from("/tmp")));
         assert_eq!(builder.agent, Some(AgentType::Claude));
-    }
-
-    #[test]
-    fn test_prompt_builder_with_output() {
-        let builder = prompt("Test")
-            .with_output(OutputConfig::verbose());
-
-        assert!(builder.output_config.is_some());
     }
 }

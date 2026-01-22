@@ -5,7 +5,7 @@ assertions:
   - tool: execute_command
     called: true
     params:
-      command: "*check_status.py*"
+      command: "python3*check_status.py*"
 
   - tool: web_fetch
     called: false

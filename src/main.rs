@@ -140,36 +140,14 @@ fn run_single_test(
     }
 
     // Execute agent with the prompt
-    let execution_result = harness.execute(agent_type, &test.prompt, config)?;
-
-    if verbose {
-        println!("Agent: {}", execution_result.agent_name);
-    }
+    let execution_output = harness.execute(agent_type, &test.prompt, config)?;
 
     // Tool calls are already normalized to canonical names
-    let tool_calls = &execution_result.tool_calls;
-
-    if verbose {
-        println!();
-        for call in tool_calls {
-            let params_preview = call
-                .params
-                .get("file_path")
-                .or_else(|| call.params.get("command"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            println!(
-                "[{}] Tool: {} ({})",
-                call.timestamp.format("%H:%M:%S"),
-                call.name,
-                params_preview
-            );
-        }
-    }
+    let tool_calls = &execution_output.result.tool_calls;
 
     println!();
     println!("{} finished. Evaluating assertions...", agent_name);
-    if let Some(log_path) = &execution_result.session_log_path {
+    if let Some(log_path) = &execution_output.session_log_path {
         println!("Session log: {:?}", log_path);
     }
     println!();
@@ -219,7 +197,7 @@ fn run_single_test(
     };
     let formatter = OutputFormatter::new(output_config);
     formatter.print_tool_calls(tool_calls, test_passed);
-    formatter.print_response(execution_result.stdout.as_deref(), test_passed);
+    formatter.print_response(execution_output.stdout.as_deref(), test_passed);
 
     Ok(test_passed)
 }

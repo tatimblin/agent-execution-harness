@@ -74,7 +74,7 @@ pub use parser::{parse_jsonl_file as parse_session, ToolCall};
 pub use fluent::Tool;
 
 // Agent execution
-pub use agents::{AgentHarness, AgentType, ExecutionConfig, NormalizedResult};
+pub use agents::{AgentHarness, AgentType, ExecutionConfig, ExecutionOutput, NormalizedResult};
 
 // Prompt builder
 pub use prompt::{prompt, PromptBuilder};
