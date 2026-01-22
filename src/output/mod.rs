@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use agent_harness::output::{OutputConfig, OutputFormatter, OutputMode};
+//! use aptitude::output::{OutputConfig, OutputFormatter, OutputMode};
 //!
 //! let config = OutputConfig::new()
 //!     .tool_calls(OutputMode::Always)

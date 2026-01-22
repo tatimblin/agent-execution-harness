@@ -12,7 +12,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use agent_harness::{AgentHarness, AgentType, ExecutionConfig};
+//! use aptitude::{AgentHarness, AgentType, ExecutionConfig};
 //!
 //! let harness = AgentHarness::new();
 //! let config = ExecutionConfig::new();

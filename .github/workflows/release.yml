@@ -40,15 +40,15 @@ jobs:
         run: |
           mkdir -p dist
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            cp target/${{ matrix.target }}/release/harness.exe dist/harness-${{ matrix.name }}.exe
+            cp target/${{ matrix.target }}/release/aptitude.exe dist/aptitude-${{ matrix.name }}.exe
           else
-            cp target/${{ matrix.target }}/release/harness dist/harness-${{ matrix.name }}
+            cp target/${{ matrix.target }}/release/aptitude dist/aptitude-${{ matrix.name }}
           fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: harness-${{ matrix.name }}
+          name: aptitude-${{ matrix.name }}
           path: dist/
 
   release:
@@ -66,7 +66,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/*/harness-*
+          files: dist/*/aptitude-*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,12 +103,12 @@ jobs:
         id: hashes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          BASE_URL="https://github.com/tatimblin/agent-execution-harness/releases/download/v${VERSION}"
+          BASE_URL="https://github.com/tatimblin/aptitude/releases/download/v${VERSION}"
 
           # Download and calculate SHA256 for each binary
-          ARM64_SHA=$(curl -sL "${BASE_URL}/harness-macos-arm64" | sha256sum | cut -d' ' -f1)
-          X86_64_SHA=$(curl -sL "${BASE_URL}/harness-macos-x86_64" | sha256sum | cut -d' ' -f1)
-          LINUX_SHA=$(curl -sL "${BASE_URL}/harness-linux-x86_64" | sha256sum | cut -d' ' -f1)
+          ARM64_SHA=$(curl -sL "${BASE_URL}/aptitude-macos-arm64" | sha256sum | cut -d' ' -f1)
+          X86_64_SHA=$(curl -sL "${BASE_URL}/aptitude-macos-x86_64" | sha256sum | cut -d' ' -f1)
+          LINUX_SHA=$(curl -sL "${BASE_URL}/aptitude-linux-x86_64" | sha256sum | cut -d' ' -f1)
 
           echo "arm64_sha=${ARM64_SHA}" >> $GITHUB_OUTPUT
           echo "x86_64_sha=${X86_64_SHA}" >> $GITHUB_OUTPUT
@@ -122,24 +122,24 @@ jobs:
           LINUX_SHA="${{ steps.hashes.outputs.linux_sha }}"
 
           # Update version and SHA256 hashes in the formula
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" agent-execution-harness.rb
-          sed -i "s/PLACEHOLDER_ARM64_SHA/${ARM64_SHA}/g" agent-execution-harness.rb
-          sed -i "s/PLACEHOLDER_X86_64_SHA/${X86_64_SHA}/g" agent-execution-harness.rb
-          sed -i "s/PLACEHOLDER_LINUX_SHA/${LINUX_SHA}/g" agent-execution-harness.rb
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" aptitude.rb
+          sed -i "s/PLACEHOLDER_ARM64_SHA/${ARM64_SHA}/g" aptitude.rb
+          sed -i "s/PLACEHOLDER_X86_64_SHA/${X86_64_SHA}/g" aptitude.rb
+          sed -i "s/PLACEHOLDER_LINUX_SHA/${LINUX_SHA}/g" aptitude.rb
 
       - name: Clone or update Homebrew tap
         run: |
-          if [ ! -d "homebrew-agent-execution-harness" ]; then
-            git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/tatimblin/homebrew-agent-execution-harness.git homebrew-agent-execution-harness
+          if [ ! -d "homebrew-aptitude" ]; then
+            git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/tatimblin/homebrew-aptitude.git homebrew-aptitude
           fi
-          cp agent-execution-harness.rb homebrew-agent-execution-harness/
+          cp aptitude.rb homebrew-aptitude/
 
       - name: Commit and push to Homebrew tap
         run: |
-          cd homebrew-agent-execution-harness
+          cd homebrew-aptitude
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/tatimblin/homebrew-agent-execution-harness.git
-          git add agent-execution-harness.rb
-          git commit -m "Update agent-execution-harness to v${{ steps.version.outputs.version }}" || exit 0
+          git remote set-url origin https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/tatimblin/homebrew-aptitude.git
+          git add aptitude.rb
+          git commit -m "Update aptitude to v${{ steps.version.outputs.version }}" || exit 0
           git push

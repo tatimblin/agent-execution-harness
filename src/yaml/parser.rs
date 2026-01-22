@@ -102,8 +102,8 @@ pub fn load_test(path: &Path) -> Result<Test> {
 /// # Example
 ///
 /// ```rust
-/// use agent_harness::yaml::parse_tool_name;
-/// use agent_harness::Tool;
+/// use aptitude::yaml::parse_tool_name;
+/// use aptitude::Tool;
 ///
 /// assert_eq!(parse_tool_name("Read").unwrap(), Tool::Read);
 /// assert_eq!(parse_tool_name("read").unwrap(), Tool::Read);

@@ -1,4 +1,4 @@
-# Agent Execution Harness
+# Aptitude
 
 A test harness for validating AI agent (Claude Code) behavior against steering guides. This tool executes Claude with prompts and asserts on the tool calls made.
 
@@ -7,21 +7,21 @@ A test harness for validating AI agent (Claude Code) behavior against steering g
 ### From crates.io
 
 ```bash
-cargo install agent-execution-harness
+cargo install aptitude
 ```
 
 ### From Homebrew
 
 ```bash
-brew tap tatimblin/agent-execution-harness
-brew install agent-execution-harness
+brew tap tatimblin/aptitude
+brew install aptitude
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/tatimblin/agent-execution-harness
-cd agent-execution-harness
+git clone https://github.com/tatimblin/aptitude
+cd aptitude
 cargo build --release
 ```
 
@@ -35,13 +35,13 @@ Execute Claude with a test file and evaluate assertions:
 
 ```bash
 # Run a single test
-harness run test.yaml
+aptitude run test.yaml
 
 # Run all tests in a directory
-harness run tests/
+aptitude run tests/
 
 # With verbose output and custom working directory
-harness run test.yaml -v -w /path/to/workdir
+aptitude run test.yaml -v -w /path/to/workdir
 ```
 
 ### Analyze existing sessions
@@ -49,7 +49,7 @@ harness run test.yaml -v -w /path/to/workdir
 Analyze a pre-existing Claude session log against test assertions:
 
 ```bash
-harness analyze test.yaml session.jsonl
+aptitude analyze test.yaml session.jsonl
 ```
 
 ## Test File Format
@@ -106,7 +106,7 @@ This project has fully automated releases to both crates.io and Homebrew:
 
 3. **Create Homebrew tap repository:**
    ```bash
-   gh repo create tatimblin/homebrew-agent-execution-harness --public
+   gh repo create tatimblin/homebrew-aptitude --public
    ```
 
 ### Create a new release
@@ -129,7 +129,7 @@ This single command automatically:
    - Calculates SHA256 hashes for Homebrew formula
    - Updates and pushes the Homebrew formula to your tap
 
-**No manual steps required!** 🎉
+**No manual steps required!**
 
 ## Architecture
 

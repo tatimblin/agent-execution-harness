@@ -10,7 +10,7 @@
 /// # Example
 ///
 /// ```rust
-/// use agent_harness::Tool;
+/// use aptitude::Tool;
 ///
 /// let tool = Tool::Read;
 /// assert_eq!(tool.as_str(), "Read");
@@ -53,7 +53,7 @@ impl Tool {
     /// # Example
     ///
     /// ```rust
-    /// use agent_harness::Tool;
+    /// use aptitude::Tool;
     ///
     /// assert_eq!(Tool::Read.as_str(), "Read");
     /// assert_eq!(Tool::Bash.as_str(), "Bash");

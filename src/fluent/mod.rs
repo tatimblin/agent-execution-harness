@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use agent_harness::{expect, Tool};
+//! use aptitude::{expect, Tool};
 //!
 //! let tool_calls = vec![/* ... */];
 //!

@@ -1,4 +1,4 @@
-//! # agent_harness
+//! # aptitude
 //!
 //! A fluent assertion library for testing AI agent tool calls.
 //!
@@ -8,7 +8,7 @@
 //! ## Quick Start
 //!
 //! ```rust,ignore
-//! use agent_harness::{prompt, expect, Tool};
+//! use aptitude::{prompt, expect, Tool};
 //!
 //! #[test]
 //! fn test_agent_behavior() {
@@ -27,7 +27,7 @@
 //! ## With Working Directory
 //!
 //! ```rust,ignore
-//! use agent_harness::{prompt, expect, Tool};
+//! use aptitude::{prompt, expect, Tool};
 //!
 //! #[test]
 //! fn test_in_project_dir() {
@@ -45,7 +45,7 @@
 //! ## Analyzing Existing Sessions
 //!
 //! ```rust,ignore
-//! use agent_harness::{parse_session, expect, Tool};
+//! use aptitude::{parse_session, expect, Tool};
 //!
 //! #[test]
 //! fn test_existing_session() {

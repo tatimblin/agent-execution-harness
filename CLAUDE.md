@@ -14,7 +14,7 @@ cargo test
 # Run a single test
 cargo test test_name
 
-# Run the harness binary
+# Run the aptitude binary
 cargo run -- <subcommand>
 
 # Run with release optimizations
@@ -23,7 +23,7 @@ cargo build --release
 
 ## CLI Usage
 
-The harness binary has two subcommands:
+The aptitude binary has two subcommands:
 
 ```bash
 # Run a test (executes Claude with prompt and asserts on tool calls)

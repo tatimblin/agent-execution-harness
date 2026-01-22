@@ -26,7 +26,7 @@ use std::collections::HashMap;
 /// # Example
 ///
 /// ```rust
-/// use agent_harness::params_match;
+/// use aptitude::params_match;
 /// use std::collections::HashMap;
 /// use serde_json::json;
 ///
@@ -76,7 +76,7 @@ pub fn params_match(expected: &HashMap<String, String>, actual: &serde_json::Val
 /// # Example
 ///
 /// ```rust,ignore
-/// use agent_harness::params;
+/// use aptitude::params;
 ///
 /// let params = params! {
 ///     "file_path" => "*.txt",

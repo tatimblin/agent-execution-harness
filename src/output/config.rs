@@ -19,7 +19,7 @@ pub enum OutputMode {
 /// Use the builder pattern to configure what gets displayed:
 ///
 /// ```rust,ignore
-/// use agent_harness::output::{OutputConfig, OutputMode};
+/// use aptitude::output::{OutputConfig, OutputMode};
 ///
 /// let config = OutputConfig::new()
 ///     .tool_calls(OutputMode::Always)

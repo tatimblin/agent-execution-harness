@@ -62,12 +62,12 @@ rm Cargo.toml.bak
 
 # Update Homebrew formula version
 echo -e "${YELLOW}Updating Homebrew formula...${NC}"
-sed -i.bak "s/version \".*\"/version \"$new_version\"/" agent-execution-harness.rb
-rm agent-execution-harness.rb.bak
+sed -i.bak "s/version \".*\"/version \"$new_version\"/" aptitude.rb
+rm aptitude.rb.bak
 
 # Commit changes
 echo -e "${YELLOW}Committing version bump...${NC}"
-git add Cargo.toml Cargo.lock agent-execution-harness.rb
+git add Cargo.toml Cargo.lock aptitude.rb
 git commit -m "Bump version to $new_version"
 
 # Create and push tag
@@ -83,7 +83,7 @@ echo "3. Publish to crates.io"
 echo "4. Update Homebrew formula with correct SHA256 hashes"
 echo "5. Push updated formula to homebrew-tap repository"
 echo
-echo "Check progress: https://github.com/tatimblin/agent-execution-harness/actions"
+echo "Check progress: https://github.com/tatimblin/aptitude/actions"
 echo
 echo -e "${GREEN}✓ Fully automated release $new_version started!${NC}"
 echo "No manual steps required - everything is automated! 🎉"

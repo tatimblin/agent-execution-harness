@@ -23,7 +23,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use agent_harness::{load_test, run_yaml_test};
+//! use aptitude::{load_test, run_yaml_test};
 //!
 //! let test = load_test("test.yaml").unwrap();
 //! let results = run_yaml_test(&test, &tool_calls);

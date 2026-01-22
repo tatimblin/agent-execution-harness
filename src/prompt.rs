@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use agent_harness::{prompt, expect, Tool};
+//! use aptitude::{prompt, expect, Tool};
 //!
 //! let tool_calls = prompt("Read the config file")
 //!     .in_dir("/path/to/project")
@@ -19,7 +19,7 @@
 //! # Full Output
 //!
 //! ```rust,ignore
-//! use agent_harness::{prompt, expect, Tool};
+//! use aptitude::{prompt, expect, Tool};
 //!
 //! let output = prompt("Read the config file")
 //!     .run_full()
@@ -43,7 +43,7 @@ use std::path::PathBuf;
 /// # Example
 ///
 /// ```rust,ignore
-/// use agent_harness::prompt;
+/// use aptitude::prompt;
 ///
 /// let tool_calls = prompt("List all files")
 ///     .in_dir("./my-project")
@@ -103,7 +103,7 @@ impl PromptBuilder {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use agent_harness::{prompt, AgentType};
+    /// use aptitude::{prompt, AgentType};
     ///
     /// let tool_calls = prompt("Hello")
     ///     .agent(AgentType::Claude)
@@ -123,7 +123,7 @@ impl PromptBuilder {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use agent_harness::prompt;
+    /// use aptitude::prompt;
     ///
     /// let output = prompt("Read config.json")
     ///     .run_full()

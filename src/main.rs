@@ -2,15 +2,15 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use agent_harness::agents::{AgentHarness, AgentType, ExecutionConfig};
-use agent_harness::output::{OutputConfig, OutputFormatter};
-use agent_harness::parser::{parse_jsonl_file, ToolCall};
+use aptitude::agents::{AgentHarness, AgentType, ExecutionConfig};
+use aptitude::output::{OutputConfig, OutputFormatter};
+use aptitude::parser::{parse_jsonl_file, ToolCall};
 
 #[cfg(feature = "yaml")]
-use agent_harness::yaml::{load_test, run_yaml_test, TestResult};
+use aptitude::yaml::{load_test, run_yaml_test, TestResult};
 
 #[derive(Parser)]
-#[command(name = "harness")]
+#[command(name = "aptitude")]
 #[command(about = "Test harness for AI agent steering guides", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -88,7 +88,7 @@ fn parse_agent_type(agent: Option<&str>) -> Result<Option<AgentType>> {
     match agent {
         None => Ok(None),
         Some(name) => AgentType::from_str(name)
-            .ok_or_else(|| anyhow::anyhow!("Unknown agent: '{}'. Use 'harness agents' to list available agents.", name))
+            .ok_or_else(|| anyhow::anyhow!("Unknown agent: '{}'. Use 'aptitude agents' to list available agents.", name))
             .map(Some),
     }
 }

@@ -25,7 +25,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use agent_harness::{expect, params, prompt, Tool};
+    use aptitude::{expect, params, prompt, Tool};
 
     /// Test that Claude follows AGENTS.md and does NOT read .env even when asked.
     ///

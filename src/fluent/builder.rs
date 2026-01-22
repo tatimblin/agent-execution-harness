@@ -46,7 +46,7 @@ impl AssertionResult {
 /// # Example
 ///
 /// ```rust,ignore
-/// use agent_harness::{expect, Tool};
+/// use aptitude::{expect, Tool};
 ///
 /// let tool_calls = vec![/* ... */];
 /// expect(&tool_calls).tool(Tool::Read).to_be_called();
@@ -128,7 +128,7 @@ impl ToolAssertion {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use agent_harness::params;
+    /// use aptitude::params;
     ///
     /// expect(&tool_calls)
     ///     .tool(Tool::Read)
@@ -275,7 +275,7 @@ impl ToolAssertion {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use agent_harness::params;
+    /// use aptitude::params;
     ///
     /// expect(&tool_calls)
     ///     .tool(Tool::Read)
