@@ -50,6 +50,10 @@ pub struct NormalizedResult {
     pub tool_calls: Vec<ToolCall>,
     /// Name of the agent that was executed.
     pub agent_name: String,
+    /// Path to the session log file, if available.
+    pub session_log_path: Option<std::path::PathBuf>,
+    /// Stdout from the agent command.
+    pub stdout: Option<String>,
 }
 
 /// The main facade for agent operations.
@@ -110,6 +114,8 @@ impl AgentHarness {
         Ok(NormalizedResult {
             tool_calls: normalized_calls,
             agent_name: agent.name().to_string(),
+            session_log_path: raw_result.session_log_path,
+            stdout: raw_result.stdout,
         })
     }
 

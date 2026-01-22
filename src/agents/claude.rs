@@ -75,13 +75,18 @@ impl Agent for ClaudeAdapter {
             cmd.arg(arg);
         }
 
-        let _output = cmd.output().context("Failed to execute claude command")?;
+        let output = cmd.output().context("Failed to execute claude command")?;
+
+        // Capture stdout
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stdout = if stdout.is_empty() { None } else { Some(stdout) };
 
         // Find the new session log file (only in this project)
         let session_log_path = find_new_session(&project_dir, &existing_sessions)?;
 
         Ok(RawExecutionResult {
             session_log_path: Some(session_log_path),
+            stdout,
         })
     }
 
@@ -154,6 +159,7 @@ fn get_project_dir_for_workdir(
 }
 
 /// List all JSONL session files in the claude directory.
+/// Excludes subagent logs (files in /subagents/ directories).
 fn list_session_files(claude_dir: &PathBuf) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
@@ -163,6 +169,10 @@ fn list_session_files(claude_dir: &PathBuf) -> Result<Vec<PathBuf>> {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
+            // Skip subagent logs - we only want main session logs
+            if path.to_string_lossy().contains("/subagents/") {
+                continue;
+            }
             if path.extension().map_or(false, |ext| ext == "jsonl") {
                 files.push(path.to_path_buf());
             }
@@ -177,30 +187,24 @@ fn find_new_session(claude_dir: &PathBuf, existing: &[PathBuf]) -> Result<PathBu
     let current = list_session_files(claude_dir)?;
 
     // Find files that are new or modified
-    for path in current {
-        if !existing.contains(&path) {
-            return Ok(path);
+    for path in &current {
+        if !existing.contains(path) {
+            return Ok(path.clone());
         }
     }
 
-    // If no new file, find the most recently modified
+    // If no new file, find the most recently modified from the filtered list
     let mut newest: Option<(PathBuf, std::time::SystemTime)> = None;
 
-    for entry in walkdir::WalkDir::new(claude_dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "jsonl") {
-            if let Ok(metadata) = path.metadata() {
-                if let Ok(modified) = metadata.modified() {
-                    match &newest {
-                        None => newest = Some((path.to_path_buf(), modified)),
-                        Some((_, newest_time)) if modified > *newest_time => {
-                            newest = Some((path.to_path_buf(), modified));
-                        }
-                        _ => {}
+    for path in current {
+        if let Ok(metadata) = path.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                match &newest {
+                    None => newest = Some((path, modified)),
+                    Some((_, newest_time)) if modified > *newest_time => {
+                        newest = Some((path, modified));
                     }
+                    _ => {}
                 }
             }
         }

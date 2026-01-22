@@ -31,6 +31,8 @@ impl ExecutionConfig {
 pub struct RawExecutionResult {
     /// Path to the session log file, if the agent produces one.
     pub session_log_path: Option<PathBuf>,
+    /// Stdout from the agent command.
+    pub stdout: Option<String>,
 }
 
 /// The core trait that all agent adapters must implement.

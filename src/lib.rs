@@ -59,6 +59,7 @@
 
 pub mod agents;
 pub mod fluent;
+pub mod output;
 pub mod parser;
 pub mod prompt;
 
@@ -77,6 +78,9 @@ pub use agents::{AgentHarness, AgentType, ExecutionConfig, NormalizedResult};
 
 // Prompt builder
 pub use prompt::{prompt, PromptBuilder};
+
+// Output formatting
+pub use output::{OutputConfig, OutputFormatter, OutputMode};
 
 // YAML (feature-gated)
 #[cfg(feature = "yaml")]
