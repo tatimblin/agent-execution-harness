@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use aptitude::agents::{AgentHarness, AgentType, ExecutionConfig};
+use aptitude::config::Config;
+use aptitude::discovery::discover_tests;
 use aptitude::output::{OutputConfig, OutputFormatter};
 use aptitude::parser::{parse_jsonl_file, ToolCall};
 
@@ -35,6 +37,26 @@ enum Commands {
         /// Agent to use (overrides test file setting)
         #[arg(short, long)]
         agent: Option<String>,
+
+        /// Test file pattern (overrides config)
+        #[arg(short, long)]
+        pattern: Option<String>,
+
+        /// Root directory for test discovery (overrides config)
+        #[arg(short, long)]
+        root: Option<PathBuf>,
+
+        /// Disable recursive directory scanning
+        #[arg(long)]
+        no_recursive: bool,
+
+        /// Path to config file (default: auto-discover)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// List matched test files without running them
+        #[arg(long)]
+        list_tests: bool,
     },
 
     /// Analyze an existing session log file
@@ -64,12 +86,35 @@ fn main() -> Result<()> {
             verbose,
             workdir,
             agent,
+            pattern,
+            root,
+            no_recursive,
+            config: config_path,
+            list_tests,
         } => {
             let agent_type = parse_agent_type(agent.as_deref())?;
-            if path.is_dir() {
-                run_tests_in_directory(&harness, &path, verbose, workdir.as_ref(), agent_type)?;
-            } else {
+
+            if path.is_file() {
+                // Single file mode - run directly
                 run_single_test(&harness, &path, verbose, workdir.as_ref(), agent_type)?;
+            } else {
+                // Directory mode - use discovery
+                let (config, config_dir) = load_or_discover_config(&path, config_path.as_ref())?;
+                let config = config.with_overrides(pattern, root, no_recursive);
+                let search_root = config.resolve_root(&path, config_dir.as_deref());
+
+                if list_tests {
+                    list_discovered_tests(&search_root, &config)?;
+                } else {
+                    run_tests_in_directory(
+                        &harness,
+                        &search_root,
+                        verbose,
+                        workdir.as_ref(),
+                        agent_type,
+                        &config,
+                    )?;
+                }
             }
         }
         Commands::Analyze { test, session, agent } => {
@@ -91,6 +136,48 @@ fn parse_agent_type(agent: Option<&str>) -> Result<Option<AgentType>> {
             .ok_or_else(|| anyhow::anyhow!("Unknown agent: '{}'. Use 'aptitude agents' to list available agents.", name))
             .map(Some),
     }
+}
+
+/// Load config from explicit path or discover from directory.
+fn load_or_discover_config(
+    start_dir: &PathBuf,
+    explicit_path: Option<&PathBuf>,
+) -> Result<(Config, Option<PathBuf>)> {
+    match explicit_path {
+        Some(path) => {
+            let config = Config::load(path)?;
+            let config_dir = path.parent().map(|p| p.to_path_buf());
+            Ok((config, config_dir))
+        }
+        None => {
+            match Config::discover(start_dir) {
+                Some((config, config_dir)) => {
+                    println!("Using config: {:?}", config_dir.join(".aptitude.yaml"));
+                    Ok((config, Some(config_dir)))
+                }
+                None => {
+                    // Use default config
+                    Ok((Config::default(), None))
+                }
+            }
+        }
+    }
+}
+
+/// List discovered test files without running them.
+fn list_discovered_tests(dir: &PathBuf, config: &Config) -> Result<()> {
+    let tests = discover_tests(dir, config)?;
+
+    println!();
+    println!("Discovered {} test file(s):", tests.len());
+    println!();
+
+    for path in &tests {
+        println!("  {}", path.display());
+    }
+
+    println!();
+    Ok(())
 }
 
 fn list_agents(harness: &AgentHarness) {
@@ -208,38 +295,49 @@ fn run_tests_in_directory(
     verbose: bool,
     workdir: Option<&PathBuf>,
     cli_agent: Option<AgentType>,
+    config: &Config,
 ) -> Result<()> {
-    let mut total_passed = 0;
-    let mut total_failed = 0;
+    let test_files = discover_tests(dir, config)?;
 
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
-            match run_single_test(harness, &path, verbose, workdir, cli_agent) {
-                Ok(passed) => {
-                    if passed {
-                        total_passed += 1;
-                    } else {
-                        total_failed += 1;
-                    }
-                }
-                Err(e) => {
-                    println!("\x1b[31mError running {:?}: {}\x1b[0m", path, e);
-                    total_failed += 1;
-                }
-            }
-            println!();
-            println!("{}", "─".repeat(60));
-        }
+    if test_files.is_empty() {
+        println!();
+        println!(
+            "No test files found matching pattern '{}' in {:?}",
+            config.test_pattern, dir
+        );
+        return Ok(());
     }
 
     println!();
     println!(
-        "Total: {} passed, {} failed",
-        total_passed, total_failed
+        "Found {} test file(s) matching '{}'",
+        test_files.len(),
+        config.test_pattern
     );
+
+    let mut total_passed = 0;
+    let mut total_failed = 0;
+
+    for path in test_files {
+        match run_single_test(harness, &path, verbose, workdir, cli_agent) {
+            Ok(passed) => {
+                if passed {
+                    total_passed += 1;
+                } else {
+                    total_failed += 1;
+                }
+            }
+            Err(e) => {
+                println!("\x1b[31mError running {:?}: {}\x1b[0m", path, e);
+                total_failed += 1;
+            }
+        }
+        println!();
+        println!("{}", "─".repeat(60));
+    }
+
+    println!();
+    println!("Total: {} passed, {} failed", total_passed, total_failed);
 
     if total_failed > 0 {
         std::process::exit(1);

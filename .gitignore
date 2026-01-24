@@ -1,9 +1,7 @@
+/examples/integrations/
+
 # Rust build artifacts
 /target/
-
-# Cargo.lock should be committed for applications but not for libraries
-# Uncomment the following line if this is a library
-# Cargo.lock
 
 # IDE and editor files
 .vscode/

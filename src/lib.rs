@@ -58,6 +58,8 @@
 //! ```
 
 pub mod agents;
+pub mod config;
+pub mod discovery;
 pub mod fluent;
 pub mod output;
 pub mod parser;

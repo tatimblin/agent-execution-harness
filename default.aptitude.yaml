@@ -1,0 +1,14 @@
+# Default configuration for aptitude test discovery.
+# This file is embedded at compile time and used when no .aptitude.yaml is found.
+
+# Glob pattern for matching test files
+test_pattern: "*.aptitude.{yaml,yml}"
+
+# Whether to scan directories recursively
+recursive: true
+
+# Directories to exclude from scanning
+exclude:
+  - target
+  - node_modules
+  - .git
