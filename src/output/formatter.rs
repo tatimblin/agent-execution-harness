@@ -43,26 +43,21 @@ impl OutputFormatter {
         }
     }
 
-    /// Format a parameter value, truncating if necessary.
+    /// Format a parameter value, showing the primary parameter.
     pub fn format_params(&self, params: &Value) -> String {
         if let Some(obj) = params.as_object() {
-            let parts: Vec<String> = obj
-                .iter()
-                .map(|(k, v)| {
-                    let val_str = match v {
-                        Value::String(s) => {
-                            let truncated = self.truncate(s);
-                            format!("\"{}\"", truncated)
-                        }
-                        other => {
-                            let s = other.to_string();
-                            self.truncate(&s)
-                        }
-                    };
-                    format!("{}={}", k, val_str)
-                })
-                .collect();
-            parts.join(", ")
+            let primary = obj
+                .get("command")
+                .or_else(|| obj.get("file_path"))
+                .or_else(|| obj.get("pattern"))
+                .or_else(|| obj.get("url"))
+                .or_else(|| obj.values().next());
+
+            match primary {
+                Some(Value::String(s)) => self.truncate(s),
+                Some(other) => self.truncate(&other.to_string()),
+                None => String::new(),
+            }
         } else {
             params.to_string()
         }
@@ -74,12 +69,9 @@ impl OutputFormatter {
         let timestamp = call.timestamp.format("%H:%M:%S");
 
         if self.config.colors_enabled {
-            format!(
-                "  [{}] {}{}{} {}",
-                timestamp, CYAN, call.name, RESET, params_str
-            )
+            format!("  [{timestamp}] {CYAN}{}{RESET} {params_str}", call.name)
         } else {
-            format!("  [{}] {} {}", timestamp, call.name, params_str)
+            format!("  [{timestamp}] {} {params_str}", call.name)
         }
     }
 
@@ -175,8 +167,8 @@ mod tests {
         let formatter = OutputFormatter::new(OutputConfig::new());
         let params = json!({"file_path": "/tmp/test.txt", "content": "hello"});
         let formatted = formatter.format_params(&params);
-        assert!(formatted.contains("file_path="));
-        assert!(formatted.contains("content="));
+        // Should show primary param (file_path) value only
+        assert_eq!(formatted, "/tmp/test.txt");
     }
 
     #[test]

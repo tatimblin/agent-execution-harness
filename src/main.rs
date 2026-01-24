@@ -74,6 +74,24 @@ enum Commands {
 
     /// List available agents
     Agents,
+
+    /// Execute Claude with a prompt and display tool calls (no assertions)
+    Log {
+        /// The prompt to send to Claude
+        prompt: String,
+
+        /// Working directory for agent execution
+        #[arg(short, long)]
+        workdir: Option<PathBuf>,
+
+        /// Agent to use (default: claude)
+        #[arg(short, long)]
+        agent: Option<String>,
+
+        /// Model to use (passed to Claude via --model)
+        #[arg(short, long)]
+        model: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -123,6 +141,15 @@ fn main() -> Result<()> {
         }
         Commands::Agents => {
             list_agents(&harness);
+        }
+        Commands::Log {
+            prompt,
+            workdir,
+            agent,
+            model,
+        } => {
+            let agent_type = parse_agent_type(agent.as_deref())?;
+            log_command(&harness, &prompt, workdir.as_deref(), agent_type, model.as_deref())?;
         }
     }
 
@@ -228,8 +255,8 @@ fn run_single_test(
     }
     println!();
 
-    // Evaluate assertions
-    let results = run_yaml_test(&test, tool_calls);
+    // Evaluate assertions (including stdout assertions)
+    let results = run_yaml_test(&test, tool_calls, &execution_output.stdout);
 
     let mut passed = 0;
     let mut failed = 0;
@@ -392,8 +419,8 @@ fn analyze_session(
     println!("Evaluating assertions...");
     println!();
 
-    // Evaluate assertions
-    let results = run_yaml_test(&test, &tool_calls);
+    // Evaluate assertions (stdout not available in analyze mode)
+    let results = run_yaml_test(&test, &tool_calls, &None);
 
     let mut passed = 0;
     let mut failed = 0;
@@ -426,6 +453,66 @@ fn analyze_session(
             passed + failed
         );
         std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn log_command(
+    harness: &AgentHarness,
+    prompt: &str,
+    workdir: Option<&Path>,
+    cli_agent: Option<AgentType>,
+    model: Option<&str>,
+) -> Result<()> {
+    let agent_name = cli_agent
+        .map(|a| a.as_str())
+        .unwrap_or("claude");
+
+    println!();
+    println!("Executing Claude with prompt: \"{}\"", prompt);
+    println!("Agent: {}", agent_name);
+    println!();
+
+    // Build execution config
+    let mut config = ExecutionConfig::new();
+    if let Some(dir) = workdir {
+        config = config.with_working_dir(dir.to_path_buf());
+    }
+    if let Some(m) = model {
+        config.extra_args.push("--model".to_string());
+        config.extra_args.push(m.to_string());
+    }
+
+    // Execute agent with the prompt
+    let execution_output = harness.execute(cli_agent, prompt, config)?;
+
+    // Tool calls are already normalized to canonical names
+    let tool_calls = &execution_output.result.tool_calls;
+
+    println!();
+    println!("Tool calls:");
+    println!("{}", "─".repeat(60));
+
+    let formatter = OutputFormatter::new(OutputConfig::verbose());
+    for call in tool_calls {
+        println!("{}", formatter.format_tool_call(call));
+    }
+
+    println!("{}", "─".repeat(60));
+    println!();
+
+    // Print Claude's response if available
+    if let Some(stdout) = &execution_output.stdout {
+        if !stdout.trim().is_empty() {
+            println!("Response:");
+            println!("{}", stdout);
+            println!();
+        }
+    }
+
+    if let Some(log_path) = &execution_output.session_log_path {
+        println!("Session log: {:?}", log_path);
     }
 
     Ok(())

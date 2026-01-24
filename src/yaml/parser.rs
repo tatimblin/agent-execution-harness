@@ -37,11 +37,11 @@ pub struct Test {
     pub assertions: Vec<Assertion>,
 }
 
-/// A single assertion about tool usage.
+/// A single assertion about tool usage or stdout.
 #[derive(Debug, Deserialize)]
 pub struct Assertion {
-    /// Tool name (case-insensitive, supports aliases).
-    pub tool: String,
+    /// Tool name (case-insensitive, supports aliases). Optional if using stdout assertion.
+    pub tool: Option<String>,
     /// Whether this tool should be called (default: true).
     #[serde(default = "default_true")]
     pub called: bool,
@@ -63,6 +63,24 @@ pub struct Assertion {
     pub first_call_params: Option<HashMap<String, String>>,
     /// Assert parameters for the last call.
     pub last_call_params: Option<HashMap<String, String>>,
+    /// Stdout assertion constraints. If present, this is a stdout assertion.
+    pub stdout: Option<StdoutConstraints>,
+}
+
+/// Constraints for stdout assertions.
+#[derive(Debug, Deserialize, Clone)]
+pub struct StdoutConstraints {
+    /// Whether stdout should exist (default: true).
+    #[serde(default = "default_true")]
+    pub exists: bool,
+    /// Assert stdout contains this substring.
+    pub contains: Option<String>,
+    /// Assert stdout does NOT contain this substring.
+    pub not_contains: Option<String>,
+    /// Assert stdout matches this regex pattern.
+    pub matches: Option<String>,
+    /// Assert stdout does NOT match this regex pattern.
+    pub not_matches: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -189,9 +207,26 @@ params:
   file_path: "*.txt"
 "#;
         let assertion: Assertion = serde_yaml::from_str(yaml).unwrap();
-        assert_eq!(assertion.tool, "Read");
+        assert_eq!(assertion.tool, Some("Read".to_string()));
         assert!(assertion.called);
         assert!(assertion.params.is_some());
+    }
+
+    #[test]
+    fn test_deserialize_stdout_assertion() {
+        let yaml = r#"
+stdout:
+  exists: true
+  contains: "success"
+  not_contains: "error"
+"#;
+        let assertion: Assertion = serde_yaml::from_str(yaml).unwrap();
+        assert!(assertion.tool.is_none());
+        assert!(assertion.stdout.is_some());
+        let stdout = assertion.stdout.unwrap();
+        assert!(stdout.exists);
+        assert_eq!(stdout.contains, Some("success".to_string()));
+        assert_eq!(stdout.not_contains, Some("error".to_string()));
     }
 
     #[test]

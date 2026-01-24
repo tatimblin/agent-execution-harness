@@ -43,7 +43,7 @@ impl Default for OutputConfig {
         Self {
             tool_calls: OutputMode::OnFailure,
             response: OutputMode::OnFailure,
-            truncate_at: 60,
+            truncate_at: 1000,
             colors_enabled: std::io::stdout().is_terminal(),
         }
     }
@@ -53,7 +53,7 @@ impl OutputConfig {
     /// Create a new output configuration with defaults.
     ///
     /// Default: `OnFailure` for both tool calls and response,
-    /// 60 character truncation, colors auto-detected from TTY.
+    /// 1000 character truncation, colors auto-detected from TTY.
     pub fn new() -> Self {
         Self::default()
     }
@@ -110,7 +110,7 @@ mod tests {
         let config = OutputConfig::new();
         assert_eq!(config.tool_calls, OutputMode::OnFailure);
         assert_eq!(config.response, OutputMode::OnFailure);
-        assert_eq!(config.truncate_at, 60);
+        assert_eq!(config.truncate_at, 1000);
     }
 
     #[test]

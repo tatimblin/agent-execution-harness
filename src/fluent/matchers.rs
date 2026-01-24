@@ -1,22 +1,18 @@
 //! Parameter matching utilities for tool call assertions.
 //!
 //! This module provides utilities for matching expected parameters against
-//! actual tool call parameters, supporting glob patterns, regex, and exact matches.
+//! actual tool call parameters using regex patterns.
 
-use glob::Pattern;
 use regex::Regex;
 use std::collections::HashMap;
 
 /// Match expected parameters against actual tool call parameters.
 ///
-/// Supports three matching modes (tried in order):
-/// 1. **Glob patterns**: e.g., `*.txt`, `**/config.json`
-/// 2. **Regex**: e.g., `^/tmp/.*\.log$`
-/// 3. **Exact match**: literal string comparison
+/// Uses regex matching. If the pattern is not a valid regex, falls back to exact match.
 ///
 /// # Arguments
 ///
-/// * `expected` - Map of parameter names to expected patterns/values
+/// * `expected` - Map of parameter names to expected regex patterns
 /// * `actual` - The actual JSON value containing the tool call parameters
 ///
 /// # Returns
@@ -31,7 +27,7 @@ use std::collections::HashMap;
 /// use serde_json::json;
 ///
 /// let mut expected = HashMap::new();
-/// expected.insert("file_path".to_string(), "*.txt".to_string());
+/// expected.insert("file_path".to_string(), r".*\.txt".to_string());
 ///
 /// assert!(params_match(&expected, &json!({"file_path": "test.txt"})));
 /// assert!(!params_match(&expected, &json!({"file_path": "test.rs"})));
@@ -46,23 +42,18 @@ pub fn params_match(expected: &HashMap<String, String>, actual: &serde_json::Val
             None => return false,
         };
 
-        // Try glob pattern first
-        if let Ok(glob) = Pattern::new(pattern) {
-            if glob.matches(&actual_str) {
-                continue;
+        // Try regex, fall back to exact match if invalid
+        match Regex::new(pattern) {
+            Ok(re) => {
+                if !re.is_match(&actual_str) {
+                    return false;
+                }
             }
-        }
-
-        // Try regex
-        if let Ok(re) = Regex::new(pattern) {
-            if re.is_match(&actual_str) {
-                continue;
+            Err(_) => {
+                if &actual_str != pattern {
+                    return false;
+                }
             }
-        }
-
-        // Exact match fallback
-        if &actual_str != pattern {
-            return false;
         }
     }
 
@@ -100,9 +91,9 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_glob_matching() {
+    fn test_regex_file_extension() {
         let mut params = HashMap::new();
-        params.insert("file_path".to_string(), "*.env".to_string());
+        params.insert("file_path".to_string(), r".*\.env$".to_string());
 
         assert!(params_match(&params, &json!({"file_path": ".env"})));
         assert!(params_match(&params, &json!({"file_path": "test.env"})));
@@ -110,25 +101,42 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_path_matching() {
+    fn test_regex_path_matching() {
         let mut params = HashMap::new();
-        params.insert("file_path".to_string(), "**/config.json".to_string());
+        params.insert("file_path".to_string(), r"(.*/)config\.json$".to_string());
 
         assert!(params_match(
             &params,
             &json!({"file_path": "src/config.json"})
         ));
-        assert!(params_match(&params, &json!({"file_path": "config.json"})));
+        assert!(params_match(&params, &json!({"file_path": "/config.json"})));
+        assert!(params_match(
+            &params,
+            &json!({"file_path": "/a/b/c/config.json"})
+        ));
     }
 
     #[test]
-    fn test_regex_matching() {
+    fn test_regex_alternation() {
         let mut params = HashMap::new();
         params.insert("command".to_string(), r"^npm (install|i)$".to_string());
 
         assert!(params_match(&params, &json!({"command": "npm install"})));
         assert!(params_match(&params, &json!({"command": "npm i"})));
         assert!(!params_match(&params, &json!({"command": "npm run"})));
+    }
+
+    #[test]
+    fn test_regex_partial_match() {
+        let mut params = HashMap::new();
+        params.insert("command".to_string(), r"node run\.js".to_string());
+
+        assert!(params_match(&params, &json!({"command": "node run.js"})));
+        assert!(params_match(
+            &params,
+            &json!({"command": "cd /some/path && node run.js --flag"})
+        ));
+        assert!(!params_match(&params, &json!({"command": "node other.js"})));
     }
 
     #[test]
@@ -140,9 +148,25 @@ mod tests {
             &params,
             &json!({"file_path": "/tmp/test.txt"})
         ));
+        // Note: without anchors, regex matches substrings
+        assert!(params_match(
+            &params,
+            &json!({"file_path": "/tmp/test.txt.bak"})
+        ));
+    }
+
+    #[test]
+    fn test_exact_matching_with_anchors() {
+        let mut params = HashMap::new();
+        params.insert("file_path".to_string(), r"^/tmp/test\.txt$".to_string());
+
+        assert!(params_match(
+            &params,
+            &json!({"file_path": "/tmp/test.txt"})
+        ));
         assert!(!params_match(
             &params,
-            &json!({"file_path": "/tmp/other.txt"})
+            &json!({"file_path": "/tmp/test.txt.bak"})
         ));
     }
 
@@ -157,7 +181,7 @@ mod tests {
     #[test]
     fn test_multiple_params() {
         let mut params = HashMap::new();
-        params.insert("file_path".to_string(), "*.txt".to_string());
+        params.insert("file_path".to_string(), r".*\.txt".to_string());
         params.insert("content".to_string(), "hello.*".to_string());
 
         assert!(params_match(

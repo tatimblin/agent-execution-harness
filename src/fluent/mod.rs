@@ -1,34 +1,46 @@
-//! Fluent assertion API for testing AI agent tool calls.
+//! Fluent assertion API for testing AI agent execution output.
 //!
-//! This module provides a Jest-like API for making assertions about tool calls.
-//! Assertions evaluate immediately (panic on failure) when using methods like
-//! `to_be_called()`, or can be evaluated non-destructively using `evaluate()`.
+//! This module provides a Jest-like API for making assertions about tool calls
+//! and stdout output. Assertions evaluate immediately (panic on failure) when
+//! using methods like `to_be_called()`, or can be evaluated non-destructively
+//! using `evaluate()`.
 //!
 //! # Example
 //!
 //! ```rust,ignore
-//! use aptitude::{expect, Tool};
+//! use aptitude::{expect, expect_tools, Tool};
 //!
-//! let tool_calls = vec![/* ... */];
+//! let output = harness.execute(...)?;
 //!
-//! // Immediate evaluation (panics on failure)
-//! expect(&tool_calls)
+//! // Tool assertions
+//! expect(&output)
 //!     .tool(Tool::Read)
 //!     .to_be_called();
 //!
-//! // Non-panicking evaluation
-//! let result = expect(&tool_calls)
+//! // Stdout assertions
+//! expect(&output)
+//!     .stdout()
+//!     .contains("success")
+//!     .to_exist();
+//!
+//! // For backward compatibility (tool calls only)
+//! let tool_calls = parse_session("session.jsonl")?;
+//! expect_tools(&tool_calls)
 //!     .tool(Tool::Read)
 //!     .evaluate();
-//! assert!(result.passed);
 //! ```
 
 mod builder;
 mod matchers;
+mod stdout;
 mod tool;
 
-pub use builder::{expect, AssertionResult, NthCallAssertion, ToolAssertion, ToolCallExpectation};
+pub use builder::{
+    expect, expect_tools, AssertionResult, ExecutionExpectation, NthCallAssertion, ToolAssertion,
+    ToolCallExpectation,
+};
 pub use matchers::params_match;
+pub use stdout::StdoutAssertion;
 pub use tool::Tool;
 
 #[cfg(test)]

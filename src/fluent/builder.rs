@@ -1,12 +1,15 @@
-//! Fluent assertion builder for tool calls.
+//! Fluent assertion builder for execution output.
 //!
-//! This module provides the core builder types for making assertions about tool calls:
-//! - `expect()` - Entry point for creating assertions
-//! - `ToolCallExpectation` - Holds tool calls and creates tool-specific assertions
+//! This module provides the core builder types for making assertions about execution:
+//! - `expect()` - Entry point for creating assertions from ExecutionOutput
+//! - `expect_tools()` - Entry point for creating assertions from tool calls only
+//! - `ExecutionExpectation` - Holds execution output and creates specific assertions
 //! - `ToolAssertion` - Builder for assertions on a specific tool
 
+use crate::agents::ExecutionOutput;
 use crate::parser::ToolCall;
 use super::matchers::params_match;
+use super::stdout::StdoutAssertion;
 use super::Tool;
 use std::collections::HashMap;
 
@@ -22,7 +25,8 @@ pub struct AssertionResult {
 }
 
 impl AssertionResult {
-    fn pass(description: impl Into<String>) -> Self {
+    /// Create a passing assertion result.
+    pub(crate) fn pass(description: impl Into<String>) -> Self {
         Self {
             passed: true,
             description: description.into(),
@@ -30,7 +34,8 @@ impl AssertionResult {
         }
     }
 
-    fn fail(description: impl Into<String>, reason: impl Into<String>) -> Self {
+    /// Create a failing assertion result.
+    pub(crate) fn fail(description: impl Into<String>, reason: impl Into<String>) -> Self {
         Self {
             passed: false,
             description: description.into(),
@@ -39,7 +44,7 @@ impl AssertionResult {
     }
 }
 
-/// Create an expectation on a set of tool calls.
+/// Create an expectation on execution output.
 ///
 /// This is the entry point for the fluent assertion API.
 ///
@@ -48,27 +53,55 @@ impl AssertionResult {
 /// ```rust,ignore
 /// use aptitude::{expect, Tool};
 ///
-/// let tool_calls = vec![/* ... */];
-/// expect(&tool_calls).tool(Tool::Read).to_be_called();
+/// let output = harness.execute(...)?;
+/// expect(&output).tool(Tool::Read).to_be_called();
+/// expect(&output).stdout().contains("done").to_exist();
 /// ```
-pub fn expect(tool_calls: &[ToolCall]) -> ToolCallExpectation {
-    ToolCallExpectation::new(tool_calls)
+pub fn expect(output: &ExecutionOutput) -> ExecutionExpectation {
+    ExecutionExpectation::new(output)
 }
 
-/// Holds tool calls and creates tool-specific assertions.
+/// Create an expectation on tool calls only (for backward compatibility).
+///
+/// Use this when you only have tool calls (e.g., from log analysis).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use aptitude::{expect_tools, Tool};
+///
+/// let tool_calls = parse_session("session.jsonl")?;
+/// expect_tools(&tool_calls).tool(Tool::Read).to_be_called();
+/// ```
+pub fn expect_tools(tool_calls: &[ToolCall]) -> ExecutionExpectation {
+    ExecutionExpectation::from_tool_calls(tool_calls)
+}
+
+/// Holds execution output and creates specific assertions.
 ///
 /// This is the starting point for building assertions. Call `.tool()` to
-/// create a `ToolAssertion` for a specific tool type.
+/// create a `ToolAssertion` for a specific tool type, or `.stdout()` to
+/// create a `StdoutAssertion` for stdout content.
 #[derive(Debug, Clone)]
-pub struct ToolCallExpectation {
+pub struct ExecutionExpectation {
     tool_calls: Vec<ToolCall>,
+    stdout: Option<String>,
 }
 
-impl ToolCallExpectation {
-    /// Create a new expectation from tool calls.
-    pub fn new(tool_calls: &[ToolCall]) -> Self {
+impl ExecutionExpectation {
+    /// Create a new expectation from execution output.
+    pub fn new(output: &ExecutionOutput) -> Self {
+        Self {
+            tool_calls: output.result.tool_calls.clone(),
+            stdout: output.stdout.clone(),
+        }
+    }
+
+    /// Create from just tool calls (for backward compatibility / analysis mode).
+    pub fn from_tool_calls(tool_calls: &[ToolCall]) -> Self {
         Self {
             tool_calls: tool_calls.to_vec(),
+            stdout: None,
         }
     }
 
@@ -77,14 +110,32 @@ impl ToolCallExpectation {
     /// # Example
     ///
     /// ```rust,ignore
-    /// expect(&tool_calls)
+    /// expect(&output)
     ///     .tool(Tool::Read)
     ///     .to_be_called();
     /// ```
     pub fn tool(&self, tool: Tool) -> ToolAssertion {
         ToolAssertion::new(self.tool_calls.clone(), tool)
     }
+
+    /// Create an assertion for stdout content.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// expect(&output)
+    ///     .stdout()
+    ///     .contains("success")
+    ///     .to_exist();
+    /// ```
+    pub fn stdout(&self) -> StdoutAssertion {
+        StdoutAssertion::new(self.stdout.clone())
+    }
 }
+
+// Backward compatibility: keep ToolCallExpectation as an alias
+#[doc(hidden)]
+pub type ToolCallExpectation = ExecutionExpectation;
 
 /// Builder for assertions on a specific tool.
 ///
@@ -123,7 +174,7 @@ impl ToolAssertion {
 
     /// Set parameter expectations for matching.
     ///
-    /// Parameters can use glob patterns, regex, or exact matching.
+    /// Parameters use regex matching. Use `.*` for wildcards, escape special chars with `\`.
     ///
     /// # Example
     ///
@@ -132,7 +183,7 @@ impl ToolAssertion {
     ///
     /// expect(&tool_calls)
     ///     .tool(Tool::Read)
-    ///     .with_params(params!{"file_path" => "*.txt"})
+    ///     .with_params(params!{"file_path" => r".*\.txt"})
     ///     .to_be_called();
     /// ```
     pub fn with_params(mut self, params: HashMap<String, String>) -> Self {

@@ -32,5 +32,5 @@
 mod parser;
 mod runner;
 
-pub use parser::{load_test, parse_tool_name, Assertion, Test, YamlError};
+pub use parser::{load_test, parse_tool_name, Assertion, StdoutConstraints, Test, YamlError};
 pub use runner::{run_yaml_test, TestResult};

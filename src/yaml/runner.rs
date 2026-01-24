@@ -4,10 +4,10 @@
 //! and collects the results. It acts as a thin adapter layer, delegating
 //! all assertion logic to the fluent API.
 
-use crate::fluent::{expect, AssertionResult, Tool};
+use crate::fluent::{expect_tools, AssertionResult, StdoutAssertion, Tool};
 use crate::parser::ToolCall;
 
-use super::parser::{parse_tool_name, Assertion, Test};
+use super::parser::{parse_tool_name, Assertion, StdoutConstraints, Test};
 
 /// Result of evaluating a single assertion.
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ impl From<AssertionResult> for TestResult {
     }
 }
 
-/// Run a YAML test against a set of tool calls.
+/// Run a YAML test against tool calls and optional stdout.
 ///
 /// This function evaluates all assertions in the test and returns the results.
 /// Unlike the fluent API's immediate evaluation, this collects all results
@@ -52,7 +52,7 @@ impl From<AssertionResult> for TestResult {
 ///
 /// ```rust,ignore
 /// let test = load_test("test.yaml")?;
-/// let results = run_yaml_test(&test, &tool_calls);
+/// let results = run_yaml_test(&test, &tool_calls, &stdout);
 ///
 /// for (description, result) in &results {
 ///     match result {
@@ -61,25 +61,51 @@ impl From<AssertionResult> for TestResult {
 ///     }
 /// }
 /// ```
-pub fn run_yaml_test(test: &Test, tool_calls: &[ToolCall]) -> Vec<(String, TestResult)> {
+pub fn run_yaml_test(
+    test: &Test,
+    tool_calls: &[ToolCall],
+    stdout: &Option<String>,
+) -> Vec<(String, TestResult)> {
     let mut results = Vec::new();
 
     for assertion in &test.assertions {
+        // Check if this is a stdout assertion
+        if let Some(stdout_constraints) = &assertion.stdout {
+            let description = format_stdout_description(stdout_constraints);
+            let result = evaluate_stdout_assertion(stdout_constraints, stdout);
+            results.push((description, result));
+            continue;
+        }
+
+        // Tool assertion - tool name is required
+        let tool_name = match &assertion.tool {
+            Some(name) => name,
+            None => {
+                results.push((
+                    "invalid assertion".to_string(),
+                    TestResult::Fail {
+                        reason: "Assertion must have either 'tool' or 'stdout'".to_string(),
+                    },
+                ));
+                continue;
+            }
+        };
+
         // Validate assertion configuration
         if let Err(err) = validate_assertion(assertion) {
             results.push((
-                format!("{} (invalid)", assertion.tool),
+                format!("{} (invalid)", tool_name),
                 TestResult::Fail { reason: err },
             ));
             continue;
         }
 
         // Parse tool name
-        let tool = match parse_tool_name(&assertion.tool) {
+        let tool = match parse_tool_name(tool_name) {
             Ok(t) => t,
             Err(e) => {
                 results.push((
-                    format!("{} (invalid)", assertion.tool),
+                    format!("{} (invalid)", tool_name),
                     TestResult::Fail {
                         reason: e.to_string(),
                     },
@@ -125,7 +151,7 @@ pub fn run_yaml_test(test: &Test, tool_calls: &[ToolCall]) -> Vec<(String, TestR
 /// Evaluate the main assertion using the fluent API.
 fn evaluate_assertion(assertion: &Assertion, tool: &Tool, tool_calls: &[ToolCall]) -> TestResult {
     // Build fluent assertion with all constraints
-    let mut builder = expect(tool_calls).tool(*tool);
+    let mut builder = expect_tools(tool_calls).tool(*tool);
 
     // Add parameter constraints
     if let Some(params) = &assertion.params {
@@ -192,7 +218,7 @@ fn evaluate_nth_params(
     }
 
     // Use fluent API's nth_call
-    let result = expect(tool_calls)
+    let result = expect_tools(tool_calls)
         .tool(*tool)
         .nth_call(n as usize)
         .evaluate_params(expected_params.clone());
@@ -215,10 +241,36 @@ fn evaluate_last_params(
     }
 
     // Use fluent API's last_call
-    let result = expect(tool_calls)
+    let result = expect_tools(tool_calls)
         .tool(*tool)
         .last_call()
         .evaluate_params(expected_params.clone());
+
+    result.into()
+}
+
+/// Evaluate stdout assertion using the fluent API.
+fn evaluate_stdout_assertion(constraints: &StdoutConstraints, stdout: &Option<String>) -> TestResult {
+    let mut builder = StdoutAssertion::new(stdout.clone());
+
+    if let Some(s) = &constraints.contains {
+        builder = builder.contains(s);
+    }
+    if let Some(s) = &constraints.not_contains {
+        builder = builder.not_contains(s);
+    }
+    if let Some(s) = &constraints.matches {
+        builder = builder.matches(s);
+    }
+    if let Some(s) = &constraints.not_matches {
+        builder = builder.not_matches(s);
+    }
+
+    let result = if constraints.exists {
+        builder.evaluate()
+    } else {
+        builder.evaluate_empty()
+    };
 
     result.into()
 }
@@ -247,7 +299,10 @@ fn validate_assertion(assertion: &Assertion) -> Result<(), String> {
 }
 
 fn format_assertion_description(assertion: &Assertion) -> String {
-    let mut desc = assertion.tool.clone();
+    let mut desc = assertion
+        .tool
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
 
     if let Some(params) = &assertion.params {
         let param_str: Vec<String> = params
@@ -270,6 +325,31 @@ fn format_assertion_description(assertion: &Assertion) -> String {
     }
 }
 
+fn format_stdout_description(constraints: &StdoutConstraints) -> String {
+    let mut parts = vec!["stdout".to_string()];
+
+    if constraints.exists {
+        parts.push("exists".to_string());
+    } else {
+        parts.push("is empty".to_string());
+    }
+
+    if let Some(s) = &constraints.contains {
+        parts.push(format!("contains '{}'", s));
+    }
+    if let Some(s) = &constraints.not_contains {
+        parts.push(format!("not contains '{}'", s));
+    }
+    if let Some(s) = &constraints.matches {
+        parts.push(format!("matches '{}'", s));
+    }
+    if let Some(s) = &constraints.not_matches {
+        parts.push(format!("not matches '{}'", s));
+    }
+
+    parts.join(", ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,29 +364,34 @@ mod tests {
         }
     }
 
+    fn make_assertion(tool: &str) -> Assertion {
+        Assertion {
+            tool: Some(tool.to_string()),
+            called: true,
+            params: None,
+            called_after: None,
+            called_before: None,
+            call_count: None,
+            max_calls: None,
+            min_calls: None,
+            nth_call_params: None,
+            first_call_params: None,
+            last_call_params: None,
+            stdout: None,
+        }
+    }
+
     #[test]
     fn test_run_yaml_test_basic() {
         let test = Test {
             name: "Test".to_string(),
             prompt: "Test prompt".to_string(),
             agent: None,
-            assertions: vec![Assertion {
-                tool: "Read".to_string(),
-                called: true,
-                params: None,
-                called_after: None,
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
-            }],
+            assertions: vec![make_assertion("Read")],
         };
 
         let calls = vec![make_call("Read", json!({"file_path": "/test.txt"}))];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -319,22 +404,13 @@ mod tests {
             prompt: "Test prompt".to_string(),
             agent: None,
             assertions: vec![Assertion {
-                tool: "Bash".to_string(),
                 called: false,
-                params: None,
-                called_after: None,
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
+                ..make_assertion("Bash")
             }],
         };
 
         let calls = vec![make_call("Read", json!({"file_path": "/test.txt"}))];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -346,23 +422,11 @@ mod tests {
             name: "Test".to_string(),
             prompt: "Test prompt".to_string(),
             agent: None,
-            assertions: vec![Assertion {
-                tool: "read".to_string(), // lowercase
-                called: true,
-                params: None,
-                called_after: None,
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
-            }],
+            assertions: vec![make_assertion("read")], // lowercase
         };
 
         let calls = vec![make_call("Read", json!({"file_path": "/test.txt"}))];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -374,23 +438,11 @@ mod tests {
             name: "Test".to_string(),
             prompt: "Test prompt".to_string(),
             agent: None,
-            assertions: vec![Assertion {
-                tool: "read_file".to_string(), // alias
-                called: true,
-                params: None,
-                called_after: None,
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
-            }],
+            assertions: vec![make_assertion("read_file")], // alias
         };
 
         let calls = vec![make_call("Read", json!({"file_path": "/test.txt"}))];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -403,17 +455,8 @@ mod tests {
             prompt: "Test prompt".to_string(),
             agent: None,
             assertions: vec![Assertion {
-                tool: "Read".to_string(),
-                called: true,
-                params: None,
-                called_after: None,
-                called_before: None,
                 call_count: Some(2),
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
+                ..make_assertion("Read")
             }],
         };
 
@@ -421,7 +464,7 @@ mod tests {
             make_call("Read", json!({"file_path": "/a.txt"})),
             make_call("Read", json!({"file_path": "/b.txt"})),
         ];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -434,17 +477,8 @@ mod tests {
             prompt: "Test prompt".to_string(),
             agent: None,
             assertions: vec![Assertion {
-                tool: "Write".to_string(),
-                called: true,
-                params: None,
                 called_after: Some("Read".to_string()),
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
-                nth_call_params: None,
-                first_call_params: None,
-                last_call_params: None,
+                ..make_assertion("Write")
             }],
         };
 
@@ -452,7 +486,7 @@ mod tests {
             make_call("Read", json!({"file_path": "/input.txt"})),
             make_call("Write", json!({"file_path": "/output.txt"})),
         ];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_pass());
@@ -465,14 +499,6 @@ mod tests {
             prompt: "Test prompt".to_string(),
             agent: None,
             assertions: vec![Assertion {
-                tool: "Read".to_string(),
-                called: true,
-                params: None,
-                called_after: None,
-                called_before: None,
-                call_count: None,
-                max_calls: None,
-                min_calls: None,
                 nth_call_params: Some({
                     let mut map = std::collections::HashMap::new();
                     let mut params = std::collections::HashMap::new();
@@ -480,8 +506,7 @@ mod tests {
                     map.insert(2, params);
                     map
                 }),
-                first_call_params: None,
-                last_call_params: None,
+                ..make_assertion("Read")
             }],
         };
 
@@ -489,11 +514,81 @@ mod tests {
             make_call("Read", json!({"file_path": "/first.txt"})),
             make_call("Read", json!({"file_path": "/second.txt"})),
         ];
-        let results = run_yaml_test(&test, &calls);
+        let results = run_yaml_test(&test, &calls, &None);
 
         // Should have 2 results: main assertion + nth_call_params
         assert_eq!(results.len(), 2);
         assert!(results[0].1.is_pass()); // Main assertion
         assert!(results[1].1.is_pass()); // nth_call_params
+    }
+
+    #[test]
+    fn test_run_yaml_test_stdout() {
+        let test = Test {
+            name: "Test".to_string(),
+            prompt: "Test prompt".to_string(),
+            agent: None,
+            assertions: vec![Assertion {
+                tool: None,
+                called: true,
+                params: None,
+                called_after: None,
+                called_before: None,
+                call_count: None,
+                max_calls: None,
+                min_calls: None,
+                nth_call_params: None,
+                first_call_params: None,
+                last_call_params: None,
+                stdout: Some(StdoutConstraints {
+                    exists: true,
+                    contains: Some("success".to_string()),
+                    not_contains: Some("error".to_string()),
+                    matches: None,
+                    not_matches: None,
+                }),
+            }],
+        };
+
+        let stdout = Some("Operation completed with success".to_string());
+        let results = run_yaml_test(&test, &[], &stdout);
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_pass());
+    }
+
+    #[test]
+    fn test_run_yaml_test_stdout_fails() {
+        let test = Test {
+            name: "Test".to_string(),
+            prompt: "Test prompt".to_string(),
+            agent: None,
+            assertions: vec![Assertion {
+                tool: None,
+                called: true,
+                params: None,
+                called_after: None,
+                called_before: None,
+                call_count: None,
+                max_calls: None,
+                min_calls: None,
+                nth_call_params: None,
+                first_call_params: None,
+                last_call_params: None,
+                stdout: Some(StdoutConstraints {
+                    exists: true,
+                    contains: Some("success".to_string()),
+                    not_contains: None,
+                    matches: None,
+                    not_matches: None,
+                }),
+            }],
+        };
+
+        let stdout = Some("Operation failed with error".to_string());
+        let results = run_yaml_test(&test, &[], &stdout);
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_fail());
     }
 }
