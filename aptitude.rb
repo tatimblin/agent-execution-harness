@@ -1,7 +1,7 @@
 class Aptitude < Formula
   desc "Test harness for validating AI agent behavior against steering guides"
   homepage "https://github.com/tatimblin/aptitude"
-  version "0.3.0"
+  version "0.3.1"
 
   on_macos do
     if Hardware::CPU.arm?
